@@ -1,6 +1,10 @@
 {
+  "name": "biegacz-galloway-timer-dominik",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "devCommand": "npm run dev",
-  "installCommand": "npm install"
+  "installCommand": "npm install",
+  "env": {
+    "NODE_ENV": "production"
+  }
 }
