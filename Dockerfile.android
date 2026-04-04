@@ -1,0 +1,15 @@
+FROM node:24-alpine as web-builder
+
+WORKDIR /build
+COPY . .
+RUN npm install && npm run build
+
+FROM gradle:8.2-jdk17
+
+WORKDIR /app
+COPY --from=web-builder /build/dist /app/web-dist
+
+# Android build would go here (requires Java, Gradle, Android SDK)
+# For now, this is a placeholder for CI/CD
+
+RUN echo "APK build placeholder - use GitHub Actions with Android SDK"

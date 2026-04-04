@@ -1,0 +1,108 @@
+name: Build Mobile Apps
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '24'
+      
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v2
+        with:
+          api-level: 31
+          build-tools-version: 33.0.0
+      
+      - name: Install web dependencies
+        run: npm install
+      
+      - name: Build web
+        run: npm run build
+      
+      - name: Build Android APK
+        run: |
+          mkdir -p android
+          cd android
+          # Would build APK here with react-native or Expo
+          echo "APK build would go here"
+      
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: android-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: warn
+
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '24'
+      
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.0'
+      
+      - name: Install dependencies
+        run: |
+          npm install
+          cd ios && pod install && cd ..
+      
+      - name: Build web
+        run: npm run build
+      
+      - name: Build iOS
+        run: |
+          xcodebuild -workspace ios/BiegaczApp.xcworkspace \
+            -scheme BiegaczApp \
+            -configuration Release \
+            -derivedDataPath build
+      
+      - name: Upload IPA
+        uses: actions/upload-artifact@v3
+        with:
+          name: ios-ipa
+          path: build/Build/Products/Release-iphoneos/BiegaczApp.ipa
+          if-no-files-found: warn
+
+  web-deploy:
+    needs: [android, ios]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '24'
+      
+      - name: Install & Build
+        run: npm install && npm run build
+      
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          scope: bocikkaiser-cpu
