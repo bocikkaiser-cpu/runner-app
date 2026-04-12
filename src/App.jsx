@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Play, Pause, RotateCcw, Settings, Volume2, VolumeX, Music } from 'lucide-react';
 
-// ─── Języki i tłumaczenia ────────────────────────────────────────────────────
-// Dodając nowy język, wystarczy dodać wpis tutaj – reszta kodu dostosuje się
-// automatycznie. Klucz = kod języka, locale = BCP-47 dla TTS.
+// ─── Języki ──────────────────────────────────────────────────────────────────
 const LANGUAGES = {
   pl: {
     name: 'Polski', flag: '🇵🇱', locale: 'pl-PL',
@@ -11,7 +9,7 @@ const LANGUAGES = {
     runLabel: '🏃 BIEG', walkLabel: '🚶 MARSZ',
     settings: 'Ustawienia', save: 'Zapisz',
     runMin: 'Bieg (min)', walkMin: 'Marsz (min)',
-    totalTime: 'Czas całkowity',
+    totalTime: 'Czas całkowity', series: 'Seria',
     runColor: 'Kolor biegu', walkColor: 'Kolor marszu',
   },
   en: {
@@ -20,7 +18,7 @@ const LANGUAGES = {
     runLabel: '🏃 RUN', walkLabel: '🚶 WALK',
     settings: 'Settings', save: 'Save',
     runMin: 'Run (min)', walkMin: 'Walk (min)',
-    totalTime: 'Total time',
+    totalTime: 'Total time', series: 'Series',
     runColor: 'Run color', walkColor: 'Walk color',
   },
   es: {
@@ -29,7 +27,7 @@ const LANGUAGES = {
     runLabel: '🏃 CORRE', walkLabel: '🚶 CAMINA',
     settings: 'Ajustes', save: 'Guardar',
     runMin: 'Correr (min)', walkMin: 'Caminar (min)',
-    totalTime: 'Tiempo total',
+    totalTime: 'Tiempo total', series: 'Serie',
     runColor: 'Color correr', walkColor: 'Color caminar',
   },
   fr: {
@@ -38,7 +36,7 @@ const LANGUAGES = {
     runLabel: '🏃 COUREZ', walkLabel: '🚶 MARCHEZ',
     settings: 'Paramètres', save: 'Enregistrer',
     runMin: 'Course (min)', walkMin: 'Marche (min)',
-    totalTime: 'Temps total',
+    totalTime: 'Temps total', series: 'Série',
     runColor: 'Couleur course', walkColor: 'Couleur marche',
   },
   de: {
@@ -47,7 +45,7 @@ const LANGUAGES = {
     runLabel: '🏃 LAUFEN', walkLabel: '🚶 GEHEN',
     settings: 'Einstellungen', save: 'Speichern',
     runMin: 'Laufen (min)', walkMin: 'Gehen (min)',
-    totalTime: 'Gesamtzeit',
+    totalTime: 'Gesamtzeit', series: 'Serie',
     runColor: 'Lauffarbe', walkColor: 'Gehfarbe',
   },
   it: {
@@ -56,7 +54,7 @@ const LANGUAGES = {
     runLabel: '🏃 CORRI', walkLabel: '🚶 CAMMINA',
     settings: 'Impostazioni', save: 'Salva',
     runMin: 'Corsa (min)', walkMin: 'Camminata (min)',
-    totalTime: 'Tempo totale',
+    totalTime: 'Tempo totale', series: 'Serie',
     runColor: 'Colore corsa', walkColor: 'Colore camminata',
   },
   pt: {
@@ -65,7 +63,7 @@ const LANGUAGES = {
     runLabel: '🏃 CORRA', walkLabel: '🚶 CAMINHE',
     settings: 'Configurações', save: 'Salvar',
     runMin: 'Corrida (min)', walkMin: 'Caminhada (min)',
-    totalTime: 'Tempo total',
+    totalTime: 'Tempo total', series: 'Série',
     runColor: 'Cor corrida', walkColor: 'Cor caminhada',
   },
   ru: {
@@ -74,7 +72,7 @@ const LANGUAGES = {
     runLabel: '🏃 БЕГ', walkLabel: '🚶 ХОДЬБА',
     settings: 'Настройки', save: 'Сохранить',
     runMin: 'Бег (мин)', walkMin: 'Ходьба (мин)',
-    totalTime: 'Общее время',
+    totalTime: 'Общее время', series: 'Серия',
     runColor: 'Цвет бега', walkColor: 'Цвет ходьбы',
   },
   zh: {
@@ -83,7 +81,7 @@ const LANGUAGES = {
     runLabel: '🏃 跑步', walkLabel: '🚶 走路',
     settings: '设置', save: '保存',
     runMin: '跑步（分钟）', walkMin: '走路（分钟）',
-    totalTime: '总时间',
+    totalTime: '总时间', series: '组',
     runColor: '跑步颜色', walkColor: '走路颜色',
   },
   ja: {
@@ -92,21 +90,20 @@ const LANGUAGES = {
     runLabel: '🏃 走る', walkLabel: '🚶 歩く',
     settings: '設定', save: '保存',
     runMin: '走る（分）', walkMin: '歩く（分）',
-    totalTime: '合計時間',
+    totalTime: '合計時間', series: 'セット',
     runColor: '走る色', walkColor: '歩く色',
   },
 };
 
-// ─── Palety kolorów ──────────────────────────────────────────────────────────
 const RUN_COLORS = [
-  { label: 'Orange',  value: '#ea580c' },
-  { label: 'Red',     value: '#dc2626' },
-  { label: 'Rose',    value: '#e11d48' },
-  { label: 'Purple',  value: '#9333ea' },
-  { label: 'Indigo',  value: '#4338ca' },
-  { label: 'Blue',    value: '#2563eb' },
-  { label: 'Amber',   value: '#d97706' },
-  { label: 'Pink',    value: '#db2777' },
+  { label: 'Orange', value: '#ea580c' },
+  { label: 'Red',    value: '#dc2626' },
+  { label: 'Rose',   value: '#e11d48' },
+  { label: 'Purple', value: '#9333ea' },
+  { label: 'Indigo', value: '#4338ca' },
+  { label: 'Blue',   value: '#2563eb' },
+  { label: 'Amber',  value: '#d97706' },
+  { label: 'Pink',   value: '#db2777' },
 ];
 
 const WALK_COLORS = [
@@ -120,107 +117,98 @@ const WALK_COLORS = [
   { label: 'Violet',  value: '#6d28d9' },
 ];
 
+// ─── Pomocnik: zaplanuj pojedynczy ton na osi czasu AudioContext ──────────────
+// Kluczowy trick: AudioContext.currentTime NIE jest throttlowany przez przeglądarkę
+// nawet przy zablokowanym ekranie – dźwięk zagra o zaplanowanej godzinie.
+function scheduleTone(ctx, mainGain, frequency, atTime, duration, type = 'sine') {
+  const osc  = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.value = frequency;
+  gain.gain.setValueAtTime(0, atTime);
+  gain.gain.linearRampToValueAtTime(0.3, atTime + 0.05);
+  gain.gain.exponentialRampToValueAtTime(0.001, atTime + duration);
+  osc.connect(gain);
+  gain.connect(mainGain);
+  osc.start(atTime);
+  osc.stop(atTime + duration + 0.1);
+}
+
+function scheduleRunMelody(ctx, mainGain, atTime) {
+  scheduleTone(ctx, mainGain, 440, atTime + 0.00, 0.15, 'triangle');
+  scheduleTone(ctx, mainGain, 554, atTime + 0.15, 0.15, 'triangle');
+  scheduleTone(ctx, mainGain, 659, atTime + 0.30, 0.15, 'triangle');
+  scheduleTone(ctx, mainGain, 880, atTime + 0.45, 0.50, 'triangle');
+}
+
+function scheduleWalkMelody(ctx, mainGain, atTime) {
+  scheduleTone(ctx, mainGain, 659, atTime + 0.00, 0.20, 'sine');
+  scheduleTone(ctx, mainGain, 554, atTime + 0.25, 0.20, 'sine');
+  scheduleTone(ctx, mainGain, 440, atTime + 0.50, 0.60, 'sine');
+}
+
+function scheduleCountdownBeep(ctx, mainGain, atTime) {
+  scheduleTone(ctx, mainGain, 600, atTime, 0.15, 'sine');
+}
+
+// ─── Zaplanuj CAŁĄ sekwencję dźwięków dla N cykli z wyprzedzeniem ─────────────
+// Dzięki temu dźwięki zagrają nawet gdy JS jest całkowicie uśpiony.
+function scheduleAllAudio(ctx, mainGain, startAudioTime, runSec, restSec, cycles = 60) {
+  const cycle = runSec + restSec;
+  for (let i = 0; i < cycles; i++) {
+    const cycleStart = startAudioTime + i * cycle;
+
+    // Start biegu
+    scheduleRunMelody(ctx, mainGain, cycleStart);
+
+    // Odliczanie przed końcem biegu: 3, 2, 1
+    const runEnd = cycleStart + runSec;
+    scheduleCountdownBeep(ctx, mainGain, runEnd - 3);
+    scheduleCountdownBeep(ctx, mainGain, runEnd - 2);
+    scheduleCountdownBeep(ctx, mainGain, runEnd - 1);
+
+    // Start marszu
+    scheduleWalkMelody(ctx, mainGain, runEnd);
+
+    // Odliczanie przed końcem marszu: 3, 2, 1
+    const restEnd = cycleStart + cycle;
+    scheduleCountdownBeep(ctx, mainGain, restEnd - 3);
+    scheduleCountdownBeep(ctx, mainGain, restEnd - 2);
+    scheduleCountdownBeep(ctx, mainGain, restEnd - 1);
+  }
+}
+
 // ─── Komponent ───────────────────────────────────────────────────────────────
 const App = () => {
-  const [runMinutes, setRunMinutes] = useState(2);
-  const [restMinutes, setRestMinutes] = useState(1);
+  const [runMinutes, setRunMinutes]     = useState(2);
+  const [restMinutes, setRestMinutes]   = useState(1);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isActive, setIsActive] = useState(false);
-  const [phase, setPhase] = useState('RUN');
-  const [timeLeft, setTimeLeft] = useState(runMinutes * 60);
-  const [totalTime, setTotalTime] = useState(0);
-  const [isMuted, setIsMuted] = useState(false);
-  const [language, setLanguage] = useState('pl');
-  const [runColor, setRunColor] = useState(RUN_COLORS[0].value);
-  const [walkColor, setWalkColor] = useState(WALK_COLORS[0].value);
-  const [series, setSeries] = useState(1);
+  const [isActive, setIsActive]         = useState(false);
+  const [phase, setPhase]               = useState('RUN');
+  const [timeLeft, setTimeLeft]         = useState(runMinutes * 60);
+  const [totalTime, setTotalTime]       = useState(0);
+  const [series, setSeries]             = useState(1);
+  const [isMuted, setIsMuted]           = useState(false);
+  const [language, setLanguage]         = useState('pl');
+  const [runColor, setRunColor]         = useState(RUN_COLORS[0].value);
+  const [walkColor, setWalkColor]       = useState(WALK_COLORS[0].value);
 
   const t = LANGUAGES[language];
 
-  const timerRef = useRef(null);
-  const wakeLockRef = useRef(null);
-  const audioCtxRef = useRef(null);
-  const mainGainRef = useRef(null);
-  const speechKeepAliveRef = useRef(null);
+  const timerRef      = useRef(null);
+  const wakeLockRef   = useRef(null);
+  const audioCtxRef   = useRef(null);
+  const mainGainRef   = useRef(null);
 
-  // Precyzyjny timing oparty na Date.now() – działa poprawnie nawet gdy
-  // przeglądarka throttluje setInterval w tle / przy zablokowanym ekranie
-  const phaseStartRef = useRef(null);
-  const phaseInitialTimeRef = useRef(null);
-  const totalStartRef = useRef(null);
-  const totalOffsetRef = useRef(0);
-  const announcedRef = useRef(new Set());
+  // Czas startu sesji na osi AudioContext (nie Date.now) – do synchronizacji
+  const audioStartTimeRef = useRef(null); // audioCtx.currentTime w chwili startu
+  const wallStartRef      = useRef(null); // Date.now() w chwili startu
+  const offsetRef         = useRef(0);    // skumulowane sekundy z poprzednich play-sesji
+  const runSecRef         = useRef(runMinutes * 60);
+  const restSecRef        = useRef(restMinutes * 60);
 
-  // ── Speech keepalive ──────────────────────────────────────────────────────
-  // speechSynthesis na Androidzie zatrzymuje się przy zablokowanym ekranie;
-  // cykliczne wywoływanie resume() łagodzi ten problem w warstwie webowej.
-  // W natywnej aplikacji (Android/iOS) TTS działa bez ograniczeń jako usługa.
-  const startSpeechKeepAlive = useCallback(() => {
-    if (speechKeepAliveRef.current) clearInterval(speechKeepAliveRef.current);
-    speechKeepAliveRef.current = setInterval(() => {
-      if (window.speechSynthesis.paused) window.speechSynthesis.resume();
-    }, 10000);
-  }, []);
-
-  const stopSpeechKeepAlive = useCallback(() => {
-    clearInterval(speechKeepAliveRef.current);
-    speechKeepAliveRef.current = null;
-  }, []);
-
-  // ── TTS ───────────────────────────────────────────────────────────────────
-  const speakVoice = useCallback((key) => {
-    if (isMuted) return;
-    const lang = LANGUAGES[language];
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(lang[key]);
-    utterance.lang = lang.locale;
-    utterance.rate = 1.1;
-    window.speechSynthesis.speak(utterance);
-  }, [isMuted, language]);
-
-  // ── Dźwięki Web Audio API ─────────────────────────────────────────────────
-  const playTone = useCallback((frequency, startTimeOffset, duration, type = 'sine') => {
-    if (isMuted || !audioCtxRef.current) return;
-    const osc = audioCtxRef.current.createOscillator();
-    const gain = audioCtxRef.current.createGain();
-    osc.type = type;
-    osc.frequency.value = frequency;
-    const startTime = audioCtxRef.current.currentTime + startTimeOffset;
-    gain.gain.setValueAtTime(0, startTime);
-    gain.gain.linearRampToValueAtTime(0.3, startTime + 0.05);
-    gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
-    osc.connect(gain);
-    gain.connect(mainGainRef.current);
-    osc.start(startTime);
-    osc.stop(startTime + duration);
-  }, [isMuted]);
-
-  const playCountdown = useCallback(() => {
-    playTone(600, 0, 0.15, 'sine');
-  }, [playTone]);
-
-  const playRunMelody = useCallback(() => {
-    playTone(440, 0.0, 0.15, 'triangle');
-    playTone(554, 0.15, 0.15, 'triangle');
-    playTone(659, 0.3, 0.15, 'triangle');
-    playTone(880, 0.45, 0.5, 'triangle');
-  }, [playTone]);
-
-  const playWalkMelody = useCallback(() => {
-    playTone(659, 0.0, 0.2, 'sine');
-    playTone(554, 0.25, 0.2, 'sine');
-    playTone(440, 0.5, 0.6, 'sine');
-  }, [playTone]);
-
-  // ── Wake Lock ─────────────────────────────────────────────────────────────
-  const requestWakeLock = useCallback(async () => {
-    if ('wakeLock' in navigator) {
-      try { wakeLockRef.current = await navigator.wakeLock.request('screen'); } catch (_) {}
-    }
-  }, []);
-
-  // ── Audio engine ──────────────────────────────────────────────────────────
-  const startAudioEngine = async () => {
+  // ── Audio engine ────────────────────────────────────────────────────────────
+  const initAudio = async () => {
     if (!audioCtxRef.current) {
       audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
     }
@@ -229,12 +217,11 @@ const App = () => {
     }
     if (!mainGainRef.current) {
       mainGainRef.current = audioCtxRef.current.createGain();
-      mainGainRef.current.gain.value = 1.0;
+      mainGainRef.current.gain.value = isMuted ? 0 : 1.0;
       mainGainRef.current.connect(audioCtxRef.current.destination);
     }
-    // Cichy oscylator – utrzymuje AudioContext przy zablokowanym ekranie
-    // W natywnej aplikacji zastępuje go usługa audio w tle (Foreground Service)
-    const silentOsc = audioCtxRef.current.createOscillator();
+    // Cichy oscylator trzyma AudioContext i wątek audio alive przy zablokowanym ekranie
+    const silentOsc  = audioCtxRef.current.createOscillator();
     const silentGain = audioCtxRef.current.createGain();
     silentGain.gain.value = 0.00001;
     silentOsc.connect(silentGain);
@@ -242,102 +229,126 @@ const App = () => {
     silentOsc.start();
   };
 
-  // ── Visibility change: wznowienie po odblokowaniu ekranu ──────────────────
+  // Mute/unmute przez gain zamiast pomijania funkcji
   useEffect(() => {
-    const handleVisibilityChange = async () => {
+    if (mainGainRef.current) {
+      mainGainRef.current.gain.value = isMuted ? 0 : 1.0;
+    }
+  }, [isMuted]);
+
+  // ── Wake Lock ───────────────────────────────────────────────────────────────
+  const requestWakeLock = async () => {
+    if ('wakeLock' in navigator) {
+      try { wakeLockRef.current = await navigator.wakeLock.request('screen'); } catch (_) {}
+    }
+  };
+
+  // Wznowienie wake lock po odblokowaniu ekranu
+  useEffect(() => {
+    const handle = async () => {
       if (document.visibilityState === 'visible') {
-        if (audioCtxRef.current?.state === 'suspended') {
-          await audioCtxRef.current.resume();
-        }
-        if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+        if (audioCtxRef.current?.state === 'suspended') await audioCtxRef.current.resume();
         if (isActive && !wakeLockRef.current) await requestWakeLock();
       }
     };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [isActive, requestWakeLock]);
+    document.addEventListener('visibilitychange', handle);
+    return () => document.removeEventListener('visibilitychange', handle);
+  }, [isActive]);
 
-  // ── Start / Pause ─────────────────────────────────────────────────────────
+  // ── Start / Pauza ───────────────────────────────────────────────────────────
   const toggleStart = async () => {
     if (!isActive) {
-      await startAudioEngine();
+      await initAudio();
       await requestWakeLock();
-      startSpeechKeepAlive();
-      phaseStartRef.current = Date.now();
-      phaseInitialTimeRef.current = timeLeft;
-      totalStartRef.current = Date.now();
-      announcedRef.current = new Set();
+
+      const ctx = audioCtxRef.current;
+      const now = ctx.currentTime;
+
+      // Przy pierwszym starcie zamroź ustawienia i zaplanuj WSZYSTKIE dźwięki
+      if (offsetRef.current === 0 && wallStartRef.current === null) {
+        runSecRef.current  = runMinutes * 60;
+        restSecRef.current = restMinutes * 60;
+        // Zaplanuj 60 cykli do przodu – AudioContext zagra je niezależnie od JS
+        scheduleAllAudio(ctx, mainGainRef.current, now, runSecRef.current, restSecRef.current, 60);
+      }
+
+      audioStartTimeRef.current = now - offsetRef.current; // punkt zero na osi audio
+      wallStartRef.current = Date.now();
       setIsActive(true);
-      if (totalTime === 0) {
-        if (phase === 'RUN') { playRunMelody(); speakVoice('run'); }
-        else                 { playWalkMelody(); speakVoice('walk'); }
-      }
     } else {
-      setIsActive(false);
-      stopSpeechKeepAlive();
-      if (totalStartRef.current) {
-        totalOffsetRef.current += Math.floor((Date.now() - totalStartRef.current) / 1000);
-        totalStartRef.current = null;
+      // Pauza – zapisz skumulowany czas
+      if (wallStartRef.current) {
+        offsetRef.current += Math.floor((Date.now() - wallStartRef.current) / 1000);
+        wallStartRef.current = null;
       }
+      setIsActive(false);
       if (wakeLockRef.current) { wakeLockRef.current.release(); wakeLockRef.current = null; }
     }
   };
 
-  // ── Główna pętla timera (Date.now() – odporna na throttling) ──────────────
+  // ── Reset ───────────────────────────────────────────────────────────────────
+  const handleReset = () => {
+    setIsActive(false);
+    wallStartRef.current      = null;
+    audioStartTimeRef.current = null;
+    offsetRef.current         = 0;
+    // Zamknij stary AudioContext żeby anulować zaplanowane dźwięki
+    if (audioCtxRef.current) {
+      audioCtxRef.current.close();
+      audioCtxRef.current = null;
+      mainGainRef.current = null;
+    }
+    if (wakeLockRef.current) { wakeLockRef.current.release(); wakeLockRef.current = null; }
+    setPhase('RUN');
+    setTimeLeft(runMinutes * 60);
+    setTotalTime(0);
+    setSeries(1);
+  };
+
+  // ── Pętla wyświetlania (tylko UI – dźwięki już zaplanowane) ─────────────────
   useEffect(() => {
     if (!isActive) { clearInterval(timerRef.current); return; }
 
     timerRef.current = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - phaseStartRef.current) / 1000);
-      const remaining = phaseInitialTimeRef.current - elapsed;
+      if (!wallStartRef.current) return;
+      const elapsed = offsetRef.current + Math.floor((Date.now() - wallStartRef.current) / 1000);
 
-      // Czas całkowity
-      if (totalStartRef.current) {
-        setTotalTime(totalOffsetRef.current + Math.floor((Date.now() - totalStartRef.current) / 1000));
-      }
+      const runSec  = runSecRef.current;
+      const restSec = restSecRef.current;
+      const cycle   = runSec + restSec;
+      const cyclePos = elapsed % cycle;
+      const newSeries = Math.floor(elapsed / cycle) + 1;
 
-      // Odliczanie 3-2-1
-      [3, 2, 1].forEach(n => {
-        const key = `${phase}-${phaseInitialTimeRef.current}-${n}`;
-        if (remaining === n && !announcedRef.current.has(key)) {
-          announcedRef.current.add(key);
-          playCountdown();
-          speakVoice(n === 3 ? 'three' : n === 2 ? 'two' : 'one');
-        }
-      });
-
-      // Zmiana fazy
-      if (remaining <= 0) {
-        const nextPhase = phase === 'RUN' ? 'REST' : 'RUN';
-        const nextDuration = nextPhase === 'RUN' ? runMinutes * 60 : restMinutes * 60;
-        phaseStartRef.current = Date.now();
-        phaseInitialTimeRef.current = nextDuration;
-        announcedRef.current = new Set();
-        if (nextPhase === 'REST') { playWalkMelody(); speakVoice('walk'); }
-        else                      { playRunMelody();  speakVoice('run'); setSeries(s => s + 1); }
-        setPhase(nextPhase);
-        setTimeLeft(nextDuration);
+      let newPhase, newTimeLeft;
+      if (cyclePos < runSec) {
+        newPhase    = 'RUN';
+        newTimeLeft = runSec - cyclePos;
       } else {
-        setTimeLeft(Math.max(0, remaining));
+        newPhase    = 'REST';
+        newTimeLeft = cycle - cyclePos;
       }
+
+      setTotalTime(elapsed);
+      setTimeLeft(newTimeLeft);
+      setPhase(newPhase);
+      setSeries(newSeries);
     }, 500);
 
     return () => clearInterval(timerRef.current);
-  }, [isActive, phase, runMinutes, restMinutes, playCountdown, playRunMelody, playWalkMelody, speakVoice]);
+  }, [isActive]);
 
   const formatTime = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-
   const bgColor = phase === 'RUN' ? runColor : walkColor;
 
-  // ─── UI ──────────────────────────────────────────────────────────────────
+  // ─── UI ───────────────────────────────────────────────────────────────────
   return (
     <div
-      className="min-h-[100dvh] flex flex-col items-center justify-between p-4 sm:p-8 text-white font-sans overflow-hidden transition-colors duration-1000"
+      className="min-h-[100dvh] flex flex-col items-center justify-between p-4 sm:p-8 text-white font-sans overflow-hidden transition-colors duration-700"
       style={{ backgroundColor: bgColor }}
     >
       {/* Header */}
       <div className="w-full max-w-lg flex justify-between items-center pt-2 sm:pt-6">
-        <button onClick={() => setIsMuted(!isMuted)} className="p-3 sm:p-4 bg-white/20 rounded-2xl backdrop-blur-md transition-transform active:scale-90">
+        <button onClick={() => setIsMuted(m => !m)} className="p-3 sm:p-4 bg-white/20 rounded-2xl backdrop-blur-md transition-transform active:scale-90">
           {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
         </button>
         <div className="text-center flex flex-col items-center">
@@ -361,7 +372,7 @@ const App = () => {
         </div>
         <div className="mt-8 flex gap-3 flex-wrap justify-center">
           <div className="bg-black/40 px-4 py-2 rounded-2xl text-xs sm:text-sm font-bold tracking-widest uppercase">
-            Seria {series}
+            {t.series} {series}
           </div>
           <div className="opacity-60 bg-black/30 px-5 sm:px-6 py-2 rounded-2xl text-xs sm:text-sm font-bold tracking-widest uppercase">
             {t.totalTime}: {formatTime(totalTime)}
@@ -372,22 +383,9 @@ const App = () => {
       {/* Kontrolki */}
       <div className="w-full max-w-lg flex flex-col items-center gap-8 sm:gap-10 mb-6 sm:mb-12">
         <div className="flex items-center gap-10 sm:gap-14">
-          <button
-            onClick={() => {
-              setIsActive(false);
-              stopSpeechKeepAlive();
-              totalOffsetRef.current = 0;
-              totalStartRef.current = null;
-              setTotalTime(0);
-              setTimeLeft(runMinutes * 60);
-              setPhase('RUN');
-              setSeries(1);
-            }}
-            className="p-4 sm:p-5 bg-white/10 rounded-full border border-white/10 active:rotate-180 transition-transform"
-          >
+          <button onClick={handleReset} className="p-4 sm:p-5 bg-white/10 rounded-full border border-white/10 active:rotate-180 transition-transform">
             <RotateCcw size={28} />
           </button>
-
           <button
             onClick={toggleStart}
             className="w-24 h-24 sm:w-32 sm:h-32 bg-white text-gray-900 rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex items-center justify-center active:scale-95 transition-transform"
@@ -396,35 +394,27 @@ const App = () => {
               ? <Pause size={48} className="sm:w-16 sm:h-16" fill="currentColor" />
               : <Play  size={48} className="sm:w-16 sm:h-16 ml-2 sm:ml-3" fill="currentColor" />}
           </button>
-
           <div className="w-[62px] sm:w-[84px]" />
         </div>
       </div>
 
-      {/* ── Modal ustawień ─────────────────────────────────────────────────── */}
+      {/* Modal ustawień */}
       {isSettingsOpen && (
         <div className="fixed inset-0 bg-black/95 backdrop-blur-2xl flex items-center justify-center p-4 sm:p-6 z-50">
           <div className="bg-zinc-900 border border-white/10 text-white w-full max-w-md rounded-[2.5rem] sm:rounded-[3rem] p-8 sm:p-10 max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl sm:text-2xl font-black mb-8 sm:mb-10 tracking-widest italic text-center uppercase border-b border-white/10 pb-4 sm:pb-6">
               {t.settings}
             </h2>
-
             <div className="space-y-8 sm:space-y-10">
 
-              {/* Wybór języka – siatka */}
+              {/* Język */}
               <div>
                 <p className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold mb-3">Language / Język</p>
                 <div className="grid grid-cols-2 gap-2">
                   {Object.entries(LANGUAGES).map(([code, lang]) => (
-                    <button
-                      key={code}
-                      onClick={() => setLanguage(code)}
+                    <button key={code} onClick={() => setLanguage(code)}
                       className={`flex items-center gap-2 px-3 py-2.5 rounded-xl font-bold text-xs tracking-wide transition-all ${
-                        language === code
-                          ? 'bg-white text-black shadow-md'
-                          : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
-                      }`}
-                    >
+                        language === code ? 'bg-white text-black shadow-md' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`}>
                       <span className="text-base">{lang.flag}</span>
                       <span>{lang.name}</span>
                     </button>
@@ -437,13 +427,9 @@ const App = () => {
                 <p className="text-[10px] uppercase tracking-widest text-orange-400 font-bold mb-3">{t.runColor}</p>
                 <div className="flex flex-wrap gap-3">
                   {RUN_COLORS.map(c => (
-                    <button
-                      key={c.value}
-                      onClick={() => setRunColor(c.value)}
+                    <button key={c.value} onClick={() => setRunColor(c.value)}
                       className={`w-9 h-9 rounded-full transition-transform active:scale-90 ${runColor === c.value ? 'ring-2 ring-white ring-offset-2 ring-offset-zinc-900 scale-110' : ''}`}
-                      style={{ backgroundColor: c.value }}
-                      title={c.label}
-                    />
+                      style={{ backgroundColor: c.value }} title={c.label} />
                   ))}
                 </div>
               </div>
@@ -453,13 +439,9 @@ const App = () => {
                 <p className="text-[10px] uppercase tracking-widest text-emerald-400 font-bold mb-3">{t.walkColor}</p>
                 <div className="flex flex-wrap gap-3">
                   {WALK_COLORS.map(c => (
-                    <button
-                      key={c.value}
-                      onClick={() => setWalkColor(c.value)}
+                    <button key={c.value} onClick={() => setWalkColor(c.value)}
                       className={`w-9 h-9 rounded-full transition-transform active:scale-90 ${walkColor === c.value ? 'ring-2 ring-white ring-offset-2 ring-offset-zinc-900 scale-110' : ''}`}
-                      style={{ backgroundColor: c.value }}
-                      title={c.label}
-                    />
+                      style={{ backgroundColor: c.value }} title={c.label} />
                   ))}
                 </div>
               </div>
@@ -470,12 +452,10 @@ const App = () => {
                   <label className="text-[10px] sm:text-xs uppercase tracking-widest">{t.runMin}</label>
                   <span className="text-3xl sm:text-4xl italic">{runMinutes}</span>
                 </div>
-                <input
-                  type="range" min="0.5" max="15" step="0.5" value={runMinutes}
-                  onChange={(e) => setRunMinutes(Number(e.target.value))}
+                <input type="range" min="0.5" max="15" step="0.5" value={runMinutes}
+                  onChange={e => setRunMinutes(Number(e.target.value))}
                   className="w-full h-3 sm:h-4 bg-zinc-800 rounded-full appearance-none cursor-pointer"
-                  style={{ accentColor: runColor }}
-                />
+                  style={{ accentColor: runColor }} />
               </div>
 
               {/* Czas marszu */}
@@ -484,12 +464,10 @@ const App = () => {
                   <label className="text-[10px] sm:text-xs uppercase tracking-widest">{t.walkMin}</label>
                   <span className="text-3xl sm:text-4xl italic">{restMinutes}</span>
                 </div>
-                <input
-                  type="range" min="0.5" max="10" step="0.5" value={restMinutes}
-                  onChange={(e) => setRestMinutes(Number(e.target.value))}
+                <input type="range" min="0.5" max="10" step="0.5" value={restMinutes}
+                  onChange={e => setRestMinutes(Number(e.target.value))}
                   className="w-full h-3 sm:h-4 bg-zinc-800 rounded-full appearance-none cursor-pointer"
-                  style={{ accentColor: walkColor }}
-                />
+                  style={{ accentColor: walkColor }} />
               </div>
             </div>
 
