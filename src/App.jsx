@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Play, Pause, RotateCcw, Settings, Volume2, VolumeX, Music } from 'lucide-react';
 
-// ─── Języki i tłumaczenia ────────────────────────────────────────────────────
-// Dodając nowy język, wystarczy dodać wpis tutaj – reszta kodu dostosuje się
-// automatycznie. Klucz = kod języka, locale = BCP-47 dla TTS.
+// ─── Języki ──────────────────────────────────────────────────────────────────
 const LANGUAGES = {
   pl: {
     name: 'Polski', flag: '🇵🇱', locale: 'pl-PL',
@@ -11,7 +9,7 @@ const LANGUAGES = {
     runLabel: '🏃 BIEG', walkLabel: '🚶 MARSZ',
     settings: 'Ustawienia', save: 'Zapisz',
     runMin: 'Bieg (min)', walkMin: 'Marsz (min)',
-    totalTime: 'Czas całkowity',
+    totalTime: 'Czas całkowity', series: 'Seria',
     runColor: 'Kolor biegu', walkColor: 'Kolor marszu',
   },
   en: {
@@ -20,7 +18,7 @@ const LANGUAGES = {
     runLabel: '🏃 RUN', walkLabel: '🚶 WALK',
     settings: 'Settings', save: 'Save',
     runMin: 'Run (min)', walkMin: 'Walk (min)',
-    totalTime: 'Total time',
+    totalTime: 'Total time', series: 'Series',
     runColor: 'Run color', walkColor: 'Walk color',
   },
   es: {
@@ -29,7 +27,7 @@ const LANGUAGES = {
     runLabel: '🏃 CORRE', walkLabel: '🚶 CAMINA',
     settings: 'Ajustes', save: 'Guardar',
     runMin: 'Correr (min)', walkMin: 'Caminar (min)',
-    totalTime: 'Tiempo total',
+    totalTime: 'Tiempo total', series: 'Serie',
     runColor: 'Color correr', walkColor: 'Color caminar',
   },
   fr: {
@@ -38,7 +36,7 @@ const LANGUAGES = {
     runLabel: '🏃 COUREZ', walkLabel: '🚶 MARCHEZ',
     settings: 'Paramètres', save: 'Enregistrer',
     runMin: 'Course (min)', walkMin: 'Marche (min)',
-    totalTime: 'Temps total',
+    totalTime: 'Temps total', series: 'Série',
     runColor: 'Couleur course', walkColor: 'Couleur marche',
   },
   de: {
@@ -47,7 +45,7 @@ const LANGUAGES = {
     runLabel: '🏃 LAUFEN', walkLabel: '🚶 GEHEN',
     settings: 'Einstellungen', save: 'Speichern',
     runMin: 'Laufen (min)', walkMin: 'Gehen (min)',
-    totalTime: 'Gesamtzeit',
+    totalTime: 'Gesamtzeit', series: 'Serie',
     runColor: 'Lauffarbe', walkColor: 'Gehfarbe',
   },
   it: {
@@ -56,7 +54,7 @@ const LANGUAGES = {
     runLabel: '🏃 CORRI', walkLabel: '🚶 CAMMINA',
     settings: 'Impostazioni', save: 'Salva',
     runMin: 'Corsa (min)', walkMin: 'Camminata (min)',
-    totalTime: 'Tempo totale',
+    totalTime: 'Tempo totale', series: 'Serie',
     runColor: 'Colore corsa', walkColor: 'Colore camminata',
   },
   pt: {
@@ -65,7 +63,7 @@ const LANGUAGES = {
     runLabel: '🏃 CORRA', walkLabel: '🚶 CAMINHE',
     settings: 'Configurações', save: 'Salvar',
     runMin: 'Corrida (min)', walkMin: 'Caminhada (min)',
-    totalTime: 'Tempo total',
+    totalTime: 'Tempo total', series: 'Série',
     runColor: 'Cor corrida', walkColor: 'Cor caminhada',
   },
   ru: {
@@ -74,7 +72,7 @@ const LANGUAGES = {
     runLabel: '🏃 БЕГ', walkLabel: '🚶 ХОДЬБА',
     settings: 'Настройки', save: 'Сохранить',
     runMin: 'Бег (мин)', walkMin: 'Ходьба (мин)',
-    totalTime: 'Общее время',
+    totalTime: 'Общее время', series: 'Серия',
     runColor: 'Цвет бега', walkColor: 'Цвет ходьбы',
   },
   zh: {
@@ -83,7 +81,7 @@ const LANGUAGES = {
     runLabel: '🏃 跑步', walkLabel: '🚶 走路',
     settings: '设置', save: '保存',
     runMin: '跑步（分钟）', walkMin: '走路（分钟）',
-    totalTime: '总时间',
+    totalTime: '总时间', series: '组',
     runColor: '跑步颜色', walkColor: '走路颜色',
   },
   ja: {
@@ -92,7 +90,7 @@ const LANGUAGES = {
     runLabel: '🏃 走る', walkLabel: '🚶 歩く',
     settings: '設定', save: '保存',
     runMin: '走る（分）', walkMin: '歩く（分）',
-    totalTime: '合計時間',
+    totalTime: '合計時間', series: 'セット',
     runColor: '走る色', walkColor: '歩く色',
   },
 };
@@ -120,19 +118,33 @@ const WALK_COLORS = [
   { label: 'Violet',  value: '#6d28d9' },
 ];
 
-// ─── Komponent ───────────────────────────────────────────────────────────────
+// ─── Główna logika ────────────────────────────────────────────────────────────
+//
+// KLUCZOWY POMYSŁ: timer nie liczy sekund przez setInterval.
+// Zamiast tego przechowuje czas startu sesji (sessionStartRef) i przy każdym
+// ticku oblicza aktualny stan z: elapsed = sessionOffset + (Date.now() - sessionStart)
+//
+// Dzięki temu po odblokowaniu ekranu (gdy interval nie strzelał np. 5 minut)
+// aplikacja natychmiast skoczy do właściwej fazy. Loop jest nieskończony.
+//
+// W natywnej aplikacji Android/iOS ten problem nie istnieje – TTS i timery
+// działają jako usługi systemowe bez żadnych ograniczeń.
+
 const App = () => {
   const [runMinutes, setRunMinutes] = useState(2);
   const [restMinutes, setRestMinutes] = useState(1);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isActive, setIsActive] = useState(false);
-  const [phase, setPhase] = useState('RUN');
-  const [timeLeft, setTimeLeft] = useState(runMinutes * 60);
-  const [totalTime, setTotalTime] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [language, setLanguage] = useState('pl');
   const [runColor, setRunColor] = useState(RUN_COLORS[0].value);
   const [walkColor, setWalkColor] = useState(WALK_COLORS[0].value);
+
+  // Stan wyświetlany – aktualizowany z obliczeń, nie z liczenia sekundami
+  const [displayPhase, setDisplayPhase] = useState('RUN');
+  const [displayTimeLeft, setDisplayTimeLeft] = useState(runMinutes * 60);
+  const [displayTotal, setDisplayTotal] = useState(0);
+  const [displaySeries, setDisplaySeries] = useState(1);
 
   const t = LANGUAGES[language];
 
@@ -142,31 +154,32 @@ const App = () => {
   const mainGainRef = useRef(null);
   const speechKeepAliveRef = useRef(null);
 
-  // Precyzyjny timing oparty na Date.now() – działa poprawnie nawet gdy
-  // przeglądarka throttluje setInterval w tle / przy zablokowanym ekranie
-  const phaseStartRef = useRef(null);
-  const phaseInitialTimeRef = useRef(null);
-  const totalStartRef = useRef(null);
-  const totalOffsetRef = useRef(0);
-  const announcedRef = useRef(new Set());
+  // Timing
+  const sessionStartRef = useRef(null);   // Date.now() przy ostatnim Resume
+  const sessionOffsetRef = useRef(0);     // skumulowane sekundy z poprzednich play-okresów
+  const announcedRef = useRef(new Set()); // klucze już ogłoszonych dźwięków
 
-  // ── Speech keepalive ──────────────────────────────────────────────────────
-  // speechSynthesis na Androidzie zatrzymuje się przy zablokowanym ekranie;
-  // cykliczne wywoływanie resume() łagodzi ten problem w warstwie webowej.
-  // W natywnej aplikacji (Android/iOS) TTS działa bez ograniczeń jako usługa.
-  const startSpeechKeepAlive = useCallback(() => {
-    if (speechKeepAliveRef.current) clearInterval(speechKeepAliveRef.current);
-    speechKeepAliveRef.current = setInterval(() => {
-      if (window.speechSynthesis.paused) window.speechSynthesis.resume();
-    }, 10000);
+  // Snapshoty ustawień w momencie startu – żeby zmiana suwaka nie psuła biegu
+  const runSecRef = useRef(runMinutes * 60);
+  const restSecRef = useRef(restMinutes * 60);
+
+  // ── Obliczenie aktualnej fazy z czasu bezwzględnego ────────────────────────
+  // Zwraca: { phase, timeLeft, series, cyclePos }
+  const calcPhaseFromElapsed = useCallback((elapsedSec) => {
+    const runSec  = runSecRef.current;
+    const restSec = restSecRef.current;
+    const cycle   = runSec + restSec;
+    const series  = Math.floor(elapsedSec / cycle); // 0-based
+    const pos     = elapsedSec % cycle;
+
+    if (pos < runSec) {
+      return { phase: 'RUN',  timeLeft: runSec - pos,  series };
+    } else {
+      return { phase: 'REST', timeLeft: cycle - pos,   series };
+    }
   }, []);
 
-  const stopSpeechKeepAlive = useCallback(() => {
-    clearInterval(speechKeepAliveRef.current);
-    speechKeepAliveRef.current = null;
-  }, []);
-
-  // ── TTS ───────────────────────────────────────────────────────────────────
+  // ── Dźwięki ────────────────────────────────────────────────────────────────
   const speakVoice = useCallback((key) => {
     if (isMuted) return;
     const lang = LANGUAGES[language];
@@ -177,48 +190,44 @@ const App = () => {
     window.speechSynthesis.speak(utterance);
   }, [isMuted, language]);
 
-  // ── Dźwięki Web Audio API ─────────────────────────────────────────────────
-  const playTone = useCallback((frequency, startTimeOffset, duration, type = 'sine') => {
+  const playTone = useCallback((freq, offset, duration, type = 'sine') => {
     if (isMuted || !audioCtxRef.current) return;
-    const osc = audioCtxRef.current.createOscillator();
+    const osc  = audioCtxRef.current.createOscillator();
     const gain = audioCtxRef.current.createGain();
     osc.type = type;
-    osc.frequency.value = frequency;
-    const startTime = audioCtxRef.current.currentTime + startTimeOffset;
-    gain.gain.setValueAtTime(0, startTime);
-    gain.gain.linearRampToValueAtTime(0.3, startTime + 0.05);
-    gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+    osc.frequency.value = freq;
+    const t0 = audioCtxRef.current.currentTime + offset;
+    gain.gain.setValueAtTime(0, t0);
+    gain.gain.linearRampToValueAtTime(0.3, t0 + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.001, t0 + duration);
     osc.connect(gain);
     gain.connect(mainGainRef.current);
-    osc.start(startTime);
-    osc.stop(startTime + duration);
+    osc.start(t0);
+    osc.stop(t0 + duration);
   }, [isMuted]);
 
-  const playCountdown = useCallback(() => {
-    playTone(600, 0, 0.15, 'sine');
-  }, [playTone]);
-
-  const playRunMelody = useCallback(() => {
-    playTone(440, 0.0, 0.15, 'triangle');
+  const playCountdown  = useCallback(() => { playTone(600, 0, 0.15, 'sine'); }, [playTone]);
+  const playRunMelody  = useCallback(() => {
+    playTone(440, 0.00, 0.15, 'triangle');
     playTone(554, 0.15, 0.15, 'triangle');
-    playTone(659, 0.3, 0.15, 'triangle');
-    playTone(880, 0.45, 0.5, 'triangle');
+    playTone(659, 0.30, 0.15, 'triangle');
+    playTone(880, 0.45, 0.50, 'triangle');
   }, [playTone]);
-
   const playWalkMelody = useCallback(() => {
-    playTone(659, 0.0, 0.2, 'sine');
-    playTone(554, 0.25, 0.2, 'sine');
-    playTone(440, 0.5, 0.6, 'sine');
+    playTone(659, 0.00, 0.20, 'sine');
+    playTone(554, 0.25, 0.20, 'sine');
+    playTone(440, 0.50, 0.60, 'sine');
   }, [playTone]);
 
-  // ── Wake Lock ─────────────────────────────────────────────────────────────
-  const requestWakeLock = useCallback(async () => {
-    if ('wakeLock' in navigator) {
-      try { wakeLockRef.current = await navigator.wakeLock.request('screen'); } catch (_) {}
-    }
-  }, []);
+  // ── Ogłoszenia (melodia + mowa) – każde tylko raz per seria/faza ──────────
+  const announce = useCallback((key, soundFn, speechKey) => {
+    if (announcedRef.current.has(key)) return;
+    announcedRef.current.add(key);
+    soundFn();
+    speakVoice(speechKey);
+  }, [speakVoice]);
 
-  // ── Audio engine ──────────────────────────────────────────────────────────
+  // ── Audio engine ───────────────────────────────────────────────────────────
   const startAudioEngine = async () => {
     if (!audioCtxRef.current) {
       audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
@@ -231,9 +240,8 @@ const App = () => {
       mainGainRef.current.gain.value = 1.0;
       mainGainRef.current.connect(audioCtxRef.current.destination);
     }
-    // Cichy oscylator – utrzymuje AudioContext przy zablokowanym ekranie
-    // W natywnej aplikacji zastępuje go usługa audio w tle (Foreground Service)
-    const silentOsc = audioCtxRef.current.createOscillator();
+    // Cichy oscylator trzyma AudioContext alive przy zablokowanym ekranie
+    const silentOsc  = audioCtxRef.current.createOscillator();
     const silentGain = audioCtxRef.current.createGain();
     silentGain.gain.value = 0.00001;
     silentOsc.connect(silentGain);
@@ -241,97 +249,135 @@ const App = () => {
     silentOsc.start();
   };
 
-  // ── Visibility change: wznowienie po odblokowaniu ekranu ──────────────────
+  const requestWakeLock = useCallback(async () => {
+    if ('wakeLock' in navigator) {
+      try { wakeLockRef.current = await navigator.wakeLock.request('screen'); } catch (_) {}
+    }
+  }, []);
+
+  // ── Speech keepalive ───────────────────────────────────────────────────────
+  const startSpeechKeepAlive = useCallback(() => {
+    clearInterval(speechKeepAliveRef.current);
+    speechKeepAliveRef.current = setInterval(() => {
+      if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+    }, 10000);
+  }, []);
+
+  const stopSpeechKeepAlive = useCallback(() => {
+    clearInterval(speechKeepAliveRef.current);
+    speechKeepAliveRef.current = null;
+  }, []);
+
+  // ── Visibility change: odblokowanie ekranu ────────────────────────────────
   useEffect(() => {
-    const handleVisibilityChange = async () => {
+    const handle = async () => {
       if (document.visibilityState === 'visible') {
-        if (audioCtxRef.current?.state === 'suspended') {
-          await audioCtxRef.current.resume();
-        }
+        if (audioCtxRef.current?.state === 'suspended') await audioCtxRef.current.resume();
         if (window.speechSynthesis.paused) window.speechSynthesis.resume();
         if (isActive && !wakeLockRef.current) await requestWakeLock();
       }
     };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('visibilitychange', handle);
+    return () => document.removeEventListener('visibilitychange', handle);
   }, [isActive, requestWakeLock]);
 
-  // ── Start / Pause ─────────────────────────────────────────────────────────
+  // ── Start / Pauza ──────────────────────────────────────────────────────────
   const toggleStart = async () => {
     if (!isActive) {
       await startAudioEngine();
       await requestWakeLock();
       startSpeechKeepAlive();
-      phaseStartRef.current = Date.now();
-      phaseInitialTimeRef.current = timeLeft;
-      totalStartRef.current = Date.now();
-      announcedRef.current = new Set();
-      setIsActive(true);
-      if (totalTime === 0) {
-        if (phase === 'RUN') { playRunMelody(); speakVoice('run'); }
-        else                 { playWalkMelody(); speakVoice('walk'); }
+
+      // Przy pierwszym starcie zamroź ustawienia i zainicjuj
+      if (sessionOffsetRef.current === 0 && sessionStartRef.current === null) {
+        runSecRef.current  = runMinutes * 60;
+        restSecRef.current = restMinutes * 60;
+        announcedRef.current = new Set();
+        // Ogłoś start
+        playRunMelody();
+        speakVoice('run');
+        announcedRef.current.add('phase-RUN-0');
       }
+
+      sessionStartRef.current = Date.now();
+      setIsActive(true);
     } else {
+      // Pauza – zapisz skumulowany czas
+      if (sessionStartRef.current) {
+        sessionOffsetRef.current += Math.floor((Date.now() - sessionStartRef.current) / 1000);
+        sessionStartRef.current = null;
+      }
       setIsActive(false);
       stopSpeechKeepAlive();
-      if (totalStartRef.current) {
-        totalOffsetRef.current += Math.floor((Date.now() - totalStartRef.current) / 1000);
-        totalStartRef.current = null;
-      }
       if (wakeLockRef.current) { wakeLockRef.current.release(); wakeLockRef.current = null; }
     }
   };
 
-  // ── Główna pętla timera (Date.now() – odporna na throttling) ──────────────
+  // ── Reset ──────────────────────────────────────────────────────────────────
+  const handleReset = () => {
+    setIsActive(false);
+    stopSpeechKeepAlive();
+    sessionStartRef.current  = null;
+    sessionOffsetRef.current = 0;
+    announcedRef.current     = new Set();
+    runSecRef.current  = runMinutes * 60;
+    restSecRef.current = restMinutes * 60;
+    setDisplayPhase('RUN');
+    setDisplayTimeLeft(runMinutes * 60);
+    setDisplayTotal(0);
+    setDisplaySeries(1);
+    if (wakeLockRef.current) { wakeLockRef.current.release(); wakeLockRef.current = null; }
+  };
+
+  // ── Główna pętla – oblicza stan z Date.now() ───────────────────────────────
   useEffect(() => {
-    if (!isActive) { clearInterval(timerRef.current); return; }
+    if (!isActive || !sessionStartRef.current) {
+      clearInterval(timerRef.current);
+      return;
+    }
 
     timerRef.current = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - phaseStartRef.current) / 1000);
-      const remaining = phaseInitialTimeRef.current - elapsed;
+      const elapsed = sessionOffsetRef.current +
+                      Math.floor((Date.now() - sessionStartRef.current) / 1000);
 
-      // Czas całkowity
-      if (totalStartRef.current) {
-        setTotalTime(totalOffsetRef.current + Math.floor((Date.now() - totalStartRef.current) / 1000));
+      const { phase, timeLeft, series } = calcPhaseFromElapsed(elapsed);
+
+      // Aktualizuj display
+      setDisplayPhase(phase);
+      setDisplayTimeLeft(timeLeft);
+      setDisplayTotal(elapsed);
+      setDisplaySeries(series + 1);
+
+      // ── Ogłoszenia przy zmianie fazy ────────────────────────────────────
+      const phaseKey = `phase-${phase}-${series}`;
+      if (!announcedRef.current.has(phaseKey)) {
+        announcedRef.current.add(phaseKey);
+        if (phase === 'RUN')  { playRunMelody();  speakVoice('run'); }
+        else                  { playWalkMelody(); speakVoice('walk'); }
       }
 
-      // Odliczanie 3-2-1
-      [3, 2, 1].forEach(n => {
-        const key = `${phase}-${phaseInitialTimeRef.current}-${n}`;
-        if (remaining === n && !announcedRef.current.has(key)) {
-          announcedRef.current.add(key);
+      // ── Odliczanie 3-2-1 (tylko gdy timeLeft jest małe) ─────────────────
+      if (timeLeft <= 3 && timeLeft >= 1) {
+        const cdKey = `cd-${phase}-${series}-${timeLeft}`;
+        if (!announcedRef.current.has(cdKey)) {
+          announcedRef.current.add(cdKey);
           playCountdown();
-          speakVoice(n === 3 ? 'three' : n === 2 ? 'two' : 'one');
+          speakVoice(timeLeft === 3 ? 'three' : timeLeft === 2 ? 'two' : 'one');
         }
-      });
-
-      // Zmiana fazy
-      if (remaining <= 0) {
-        const nextPhase = phase === 'RUN' ? 'REST' : 'RUN';
-        const nextDuration = nextPhase === 'RUN' ? runMinutes * 60 : restMinutes * 60;
-        phaseStartRef.current = Date.now();
-        phaseInitialTimeRef.current = nextDuration;
-        announcedRef.current = new Set();
-        if (nextPhase === 'REST') { playWalkMelody(); speakVoice('walk'); }
-        else                      { playRunMelody();  speakVoice('run'); }
-        setPhase(nextPhase);
-        setTimeLeft(nextDuration);
-      } else {
-        setTimeLeft(Math.max(0, remaining));
       }
-    }, 500);
+    }, 500); // 500ms dla płynności, Date.now() zapewnia dokładność
 
     return () => clearInterval(timerRef.current);
-  }, [isActive, phase, runMinutes, restMinutes, playCountdown, playRunMelody, playWalkMelody, speakVoice]);
+  }, [isActive, calcPhaseFromElapsed, playRunMelody, playWalkMelody, playCountdown, speakVoice]);
 
   const formatTime = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
-  const bgColor = phase === 'RUN' ? runColor : walkColor;
+  const bgColor = displayPhase === 'RUN' ? runColor : walkColor;
 
-  // ─── UI ──────────────────────────────────────────────────────────────────
+  // ─── UI ───────────────────────────────────────────────────────────────────
   return (
     <div
-      className="min-h-[100dvh] flex flex-col items-center justify-between p-4 sm:p-8 text-white font-sans overflow-hidden transition-colors duration-1000"
+      className="min-h-[100dvh] flex flex-col items-center justify-between p-4 sm:p-8 text-white font-sans overflow-hidden transition-colors duration-700"
       style={{ backgroundColor: bgColor }}
     >
       {/* Header */}
@@ -353,13 +399,21 @@ const App = () => {
       {/* Timer */}
       <div className="flex flex-col items-center flex-1 justify-center w-full relative my-8 sm:my-0">
         <div className="absolute top-0 sm:top-8 px-8 sm:px-10 py-2 bg-black/20 rounded-full border border-white/10 uppercase font-black italic tracking-widest text-lg sm:text-xl">
-          {phase === 'RUN' ? t.runLabel : t.walkLabel}
+          {displayPhase === 'RUN' ? t.runLabel : t.walkLabel}
         </div>
+
         <div className="text-7xl sm:text-9xl md:text-[110px] font-black tabular-nums tracking-tighter leading-none mt-16 sm:mt-10">
-          {formatTime(timeLeft)}
+          {formatTime(displayTimeLeft)}
         </div>
-        <div className="mt-8 opacity-60 bg-black/30 px-5 sm:px-6 py-2 rounded-2xl text-xs sm:text-sm font-bold tracking-widest uppercase">
-          {t.totalTime}: {formatTime(totalTime)}
+
+        {/* Seria + czas całkowity */}
+        <div className="mt-8 flex gap-3 items-center">
+          <div className="bg-black/30 px-4 py-2 rounded-2xl text-xs sm:text-sm font-bold tracking-widest uppercase opacity-80">
+            {t.series} {displaySeries}
+          </div>
+          <div className="opacity-60 bg-black/30 px-5 sm:px-6 py-2 rounded-2xl text-xs sm:text-sm font-bold tracking-widest uppercase">
+            {t.totalTime}: {formatTime(displayTotal)}
+          </div>
         </div>
       </div>
 
@@ -367,15 +421,7 @@ const App = () => {
       <div className="w-full max-w-lg flex flex-col items-center gap-8 sm:gap-10 mb-6 sm:mb-12">
         <div className="flex items-center gap-10 sm:gap-14">
           <button
-            onClick={() => {
-              setIsActive(false);
-              stopSpeechKeepAlive();
-              totalOffsetRef.current = 0;
-              totalStartRef.current = null;
-              setTotalTime(0);
-              setTimeLeft(runMinutes * 60);
-              setPhase('RUN');
-            }}
+            onClick={handleReset}
             className="p-4 sm:p-5 bg-white/10 rounded-full border border-white/10 active:rotate-180 transition-transform"
           >
             <RotateCcw size={28} />
@@ -394,7 +440,7 @@ const App = () => {
         </div>
       </div>
 
-      {/* ── Modal ustawień ─────────────────────────────────────────────────── */}
+      {/* Modal ustawień */}
       {isSettingsOpen && (
         <div className="fixed inset-0 bg-black/95 backdrop-blur-2xl flex items-center justify-center p-4 sm:p-6 z-50">
           <div className="bg-zinc-900 border border-white/10 text-white w-full max-w-md rounded-[2.5rem] sm:rounded-[3rem] p-8 sm:p-10 max-h-[90vh] overflow-y-auto">
@@ -404,7 +450,7 @@ const App = () => {
 
             <div className="space-y-8 sm:space-y-10">
 
-              {/* Wybór języka – siatka */}
+              {/* Język */}
               <div>
                 <p className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold mb-3">Language / Język</p>
                 <div className="grid grid-cols-2 gap-2">
@@ -487,7 +533,7 @@ const App = () => {
             </div>
 
             <button
-              onClick={() => { setIsSettingsOpen(false); if (!isActive) setTimeLeft(runMinutes * 60); }}
+              onClick={() => { setIsSettingsOpen(false); if (!isActive) setDisplayTimeLeft(runMinutes * 60); }}
               className="w-full mt-10 sm:mt-12 bg-white text-black py-4 sm:py-5 rounded-2xl sm:rounded-3xl font-black text-lg sm:text-xl active:scale-95 transition-transform shadow-xl hover:bg-zinc-200"
             >
               {t.save}
