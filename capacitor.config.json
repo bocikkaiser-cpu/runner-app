@@ -1,6 +1,6 @@
 {
-  "appId": "com.bocikkaiser.biegacz",
-  "appName": "Biegacz",
+  "appId": "com.bocikkaiser.runwalktimer",
+  "appName": "RunWalk Timer",
   "webDir": "dist",
   "server": {
     "androidScheme": "https"

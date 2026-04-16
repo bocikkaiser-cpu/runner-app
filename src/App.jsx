@@ -43,10 +43,11 @@ const App = () => {
 
   // ── AUDIO – oryginalny kod bez żadnych zmian ─────────────────────────────
 
-  const speakVoice = useCallback((textEn, textPl) => {
+  const speakVoice = useCallback((key) => {
     if (isMuted) return;
     const lang = LANGUAGES[language];
-    const text = textPl !== undefined ? (language === 'pl' ? textPl : textEn) : textEn;
+    // key to jedno z: 'run' | 'walk' | 'three' | 'two' | 'one'
+    const text = lang[key] || key;
     // speak() sam wybierze natywny TTS (Android przy zablokowanym ekranie) lub webowy fallback
     speak(text, lang.locale, 1.1);
   }, [isMuted, language]);
@@ -113,8 +114,8 @@ const App = () => {
       }
       setIsActive(true);
       if (totalTime === 0) {
-        if (phase === 'RUN') { playRunMelody();  speakVoice('Run',  'Bieg');  }
-        else                 { playWalkMelody(); speakVoice('Walk', 'Marsz'); }
+        if (phase === 'RUN') { playRunMelody();  speakVoice('run');  }
+        else                 { playWalkMelody(); speakVoice('walk'); }
       }
     } else {
       setIsActive(false);
@@ -127,16 +128,16 @@ const App = () => {
       timerRef.current = setInterval(() => {
         setTimeLeft((prev) => {
           const nextValue = prev - 1;
-          if (nextValue === 3) { playCountdown(); speakVoice('Three', 'Trzy');  }
-          if (nextValue === 2) { playCountdown(); speakVoice('Two',   'Dwa');   }
-          if (nextValue === 1) { playCountdown(); speakVoice('One',   'Jeden'); }
+          if (nextValue === 3) { playCountdown(); speakVoice('three'); }
+          if (nextValue === 2) { playCountdown(); speakVoice('two');   }
+          if (nextValue === 1) { playCountdown(); speakVoice('one');   }
           if (nextValue <= 0) {
             if (phase === 'RUN') {
-              playWalkMelody(); speakVoice('Walk', 'Marsz');
+              playWalkMelody(); speakVoice('walk');
               setPhase('REST');
               return restMinutes * 60;
             } else {
-              playRunMelody(); speakVoice('Run', 'Bieg');
+              playRunMelody(); speakVoice('run');
               setPhase('RUN');
               setSeries(s => s + 1);
               return runMinutes * 60;
