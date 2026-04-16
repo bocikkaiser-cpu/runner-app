@@ -39,17 +39,21 @@ const App = () => {
   const wakeLockRef = useRef(null);
   const audioCtxRef = useRef(null);
   const mainGainRef = useRef(null);
-  const silentAudioRef = useRef(null); // <audio> z cichym MP3 – trzyma tab jako "media playback"
 
-  // Timing oparty na Date.now() – NIE na odejmowaniu sekundy co tick
-  const wallStartRef = useRef(null); // Date.now() w chwili ostatniego Resume
-  const offsetRef    = useRef(0);    // skumulowane sekundy z poprzednich play-okresów
-  const runSecRef    = useRef(runMinutes * 60);
-  const restSecRef   = useRef(restMinutes * 60);
+  // ── AUDIO – oryginalny kod bez żadnych zmian ─────────────────────────────
 
-  // ── AUDIO – oryginalny playTone ─────────────────────────────────────────────
+  const speakVoice = useCallback((textEn, textPl) => {
+    if (isMuted) return;
+    window.speechSynthesis.cancel();
+    const lang = LANGUAGES[language];
+    const utterance = new SpeechSynthesisUtterance(textPl !== undefined ? (language === 'pl' ? textPl : textEn) : textEn);
+    utterance.lang = lang.locale;
+    utterance.rate = 1.1;
+    window.speechSynthesis.speak(utterance);
+  }, [isMuted, language]);
+
   const playTone = useCallback((frequency, startTimeOffset, duration, type = 'sine') => {
-    if (!audioCtxRef.current || !mainGainRef.current) return;
+    if (isMuted || !audioCtxRef.current) return;
     const osc  = audioCtxRef.current.createOscillator();
     const gain = audioCtxRef.current.createGain();
     osc.type = type;
@@ -61,63 +65,25 @@ const App = () => {
     osc.connect(gain);
     gain.connect(mainGainRef.current);
     osc.start(startTime);
-    osc.stop(startTime + duration + 0.05);
-  }, []);
-
-  const playRunMelodyAt = useCallback((offset) => {
-    playTone(440, offset + 0.0,  0.15, 'triangle');
-    playTone(554, offset + 0.15, 0.15, 'triangle');
-    playTone(659, offset + 0.3,  0.15, 'triangle');
-    playTone(880, offset + 0.45, 0.5,  'triangle');
-  }, [playTone]);
-
-  const playWalkMelodyAt = useCallback((offset) => {
-    playTone(659, offset + 0.0,  0.2, 'sine');
-    playTone(554, offset + 0.25, 0.2, 'sine');
-    playTone(440, offset + 0.5,  0.6, 'sine');
-  }, [playTone]);
-
-  const playCountdownAt = useCallback((offset) => {
-    playTone(600, offset, 0.15, 'sine');
-  }, [playTone]);
-
-  // TTS – działa TYLKO gdy ekran odblokowany. Na web nie da się inaczej.
-  const speakVoice = useCallback((key) => {
-    if (isMuted) return;
-    const lang = LANGUAGES[language];
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(lang[key]);
-    u.lang = lang.locale;
-    u.rate = 1.1;
-    window.speechSynthesis.speak(u);
-  }, [isMuted, language]);
-
-  // Zaplanuj WSZYSTKIE dźwięki dla N cykli do przodu – AudioContext nie jest throttlowany
-  const schedulePhaseAudio = useCallback((startOffset, runSec, restSec, cycles) => {
-    const cycleSec = runSec + restSec;
-    for (let i = 0; i < cycles; i++) {
-      const base = startOffset + i * cycleSec;
-      // Start biegu (pomiń i=0 bo melodia startowa grana osobno natychmiast)
-      if (i > 0) playRunMelodyAt(base);
-      // Odliczanie przed końcem biegu
-      playCountdownAt(base + runSec - 3);
-      playCountdownAt(base + runSec - 2);
-      playCountdownAt(base + runSec - 1);
-      // Start marszu
-      playWalkMelodyAt(base + runSec);
-      // Odliczanie przed końcem marszu
-      playCountdownAt(base + cycleSec - 3);
-      playCountdownAt(base + cycleSec - 2);
-      playCountdownAt(base + cycleSec - 1);
-    }
-  }, [playRunMelodyAt, playWalkMelodyAt, playCountdownAt]);
-
-  // Mute przez gain – nie przez pomijanie wywołań playTone
-  useEffect(() => {
-    if (mainGainRef.current) {
-      mainGainRef.current.gain.value = isMuted ? 0 : 1.0;
-    }
+    osc.stop(startTime + duration);
   }, [isMuted]);
+
+  const playCountdown = useCallback(() => {
+    playTone(600, 0, 0.15, 'sine');
+  }, [playTone]);
+
+  const playRunMelody = useCallback(() => {
+    playTone(440, 0.0,  0.15, 'triangle');
+    playTone(554, 0.15, 0.15, 'triangle');
+    playTone(659, 0.3,  0.15, 'triangle');
+    playTone(880, 0.45, 0.5,  'triangle');
+  }, [playTone]);
+
+  const playWalkMelody = useCallback(() => {
+    playTone(659, 0.0,  0.2, 'sine');
+    playTone(554, 0.25, 0.2, 'sine');
+    playTone(440, 0.5,  0.6, 'sine');
+  }, [playTone]);
 
   const startAudioEngine = async () => {
     if (!audioCtxRef.current) {
@@ -128,37 +94,10 @@ const App = () => {
     }
     if (!mainGainRef.current) {
       mainGainRef.current = audioCtxRef.current.createGain();
-      mainGainRef.current.gain.value = isMuted ? 0 : 1.0;
+      mainGainRef.current.gain.value = 1.0;
       mainGainRef.current.connect(audioCtxRef.current.destination);
     }
-
-    // ── KLUCZOWY TRICK: cichy MP3 w pętli przez <audio> ─────────────────────
-    // Sam AudioContext na Chrome Android jest zawieszany przy zablokowanym ekranie.
-    // Jednak jeśli strona ma aktywny <audio> odtwarzający media, Android traktuje ją
-    // jak odtwarzacz muzyki i utrzymuje audio w tle. Web Audio API wtedy też działa.
-    if (!silentAudioRef.current) {
-      // 30 sekund prawie-ciszy w formacie WAV jako data URI
-      // (loopowane przez pętlę audio)
-      const silentWav = 'data:audio/wav;base64,UklGRiQrAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQArAAAA' + 'AAAA'.repeat(2700);
-      const audio = new Audio(silentWav);
-      audio.loop = true;
-      audio.volume = 0.001; // prawie cisza, ale nie zero – zero zwalnia audio focus
-      audio.play().catch(() => {});
-      silentAudioRef.current = audio;
-    } else {
-      silentAudioRef.current.play().catch(() => {});
-    }
-
-    // MediaSession API – rejestruje stronę jako odtwarzacz, ikonka w powiadomieniach
-    if ('mediaSession' in navigator) {
-      navigator.mediaSession.metadata = new window.MediaMetadata({
-        title: 'Biegacz – Galloway Timer',
-        artist: t.run + ' / ' + t.walk,
-      });
-      navigator.mediaSession.playbackState = 'playing';
-    }
-
-    // Cichy oscylator (dodatkowy bufor)
+    // Generator ciszy utrzymujący procesor w gotowości przy wyłączonym ekranie
     const silentOsc  = audioCtxRef.current.createOscillator();
     const silentGain = audioCtxRef.current.createGain();
     silentGain.gain.value = 0.00001;
@@ -173,128 +112,52 @@ const App = () => {
       if ('wakeLock' in navigator) {
         try { wakeLockRef.current = await navigator.wakeLock.request('screen'); } catch (err) {}
       }
-
-      // Przy pierwszym starcie: zamroź czasy i zaplanuj audio
-      if (offsetRef.current === 0 && wallStartRef.current === null) {
-        runSecRef.current  = runMinutes * 60;
-        restSecRef.current = restMinutes * 60;
-        // Natychmiastowa melodia startowa (jak w oryginale)
-        playRunMelodyAt(0);
-        speakVoice('run');
-        // Pre-scheduluj 120 cykli do przodu – AudioContext zagra je nawet przy zablokowanym ekranie
-        schedulePhaseAudio(0, runSecRef.current, restSecRef.current, 120);
-      } else {
-        // Resume po pauzie – doplanuj audio od aktualnej pozycji w cyklu
-        const runSec = runSecRef.current;
-        const restSec = restSecRef.current;
-        const cycleSec = runSec + restSec;
-        const alreadyElapsed = offsetRef.current;
-        const cyclePos = alreadyElapsed % cycleSec;
-        const currentCycle = Math.floor(alreadyElapsed / cycleSec);
-        // Doplanuj bieżący cykl (od miejsca w którym jesteśmy) + 120 kolejnych cykli
-        // Uproszczone: planuj od "teraz - cyclePos" na osi AudioContext
-        schedulePhaseAudio(-cyclePos, runSec, restSec, 120);
-        // Zagraj również melodię bieżącej fazy od razu dla informacji
-        if (cyclePos < runSec) playRunMelodyAt(0); else playWalkMelodyAt(0);
-      }
-
-      wallStartRef.current = Date.now();
       setIsActive(true);
+      if (totalTime === 0) {
+        if (phase === 'RUN') { playRunMelody();  speakVoice('Run',  'Bieg');  }
+        else                 { playWalkMelody(); speakVoice('Walk', 'Marsz'); }
+      }
     } else {
-      // Pauza – zapisz skumulowany czas, zamknij AudioContext by anulować zaplanowane
-      if (wallStartRef.current) {
-        offsetRef.current += Math.floor((Date.now() - wallStartRef.current) / 1000);
-        wallStartRef.current = null;
-      }
-      if (audioCtxRef.current) {
-        audioCtxRef.current.close();
-        audioCtxRef.current = null;
-        mainGainRef.current = null;
-      }
-      if (silentAudioRef.current) {
-        silentAudioRef.current.pause();
-      }
-      if ('mediaSession' in navigator) {
-        navigator.mediaSession.playbackState = 'paused';
-      }
       setIsActive(false);
       if (wakeLockRef.current) { wakeLockRef.current.release(); wakeLockRef.current = null; }
     }
   };
 
-  const handleReset = () => {
-    if (audioCtxRef.current) {
-      audioCtxRef.current.close();
-      audioCtxRef.current = null;
-      mainGainRef.current = null;
-    }
-    if (silentAudioRef.current) {
-      silentAudioRef.current.pause();
-      silentAudioRef.current = null;
-    }
-    if ('mediaSession' in navigator) {
-      navigator.mediaSession.playbackState = 'none';
-    }
-    wallStartRef.current = null;
-    offsetRef.current = 0;
-    if (wakeLockRef.current) { wakeLockRef.current.release(); wakeLockRef.current = null; }
-    setIsActive(false);
-    setPhase('RUN');
-    setTimeLeft(runMinutes * 60);
-    setTotalTime(0);
-    setSeries(1);
-  };
-
-  // ── Pętla wyświetlania – oblicza stan z Date.now() (odporna na throttling) ──
   useEffect(() => {
-    if (!isActive) { clearInterval(timerRef.current); return; }
-
-    const tick = () => {
-      if (!wallStartRef.current) return;
-      const elapsed = offsetRef.current + Math.floor((Date.now() - wallStartRef.current) / 1000);
-      const runSec = runSecRef.current;
-      const restSec = restSecRef.current;
-      const cycleSec = runSec + restSec;
-      const cyclePos = elapsed % cycleSec;
-      const newSeries = Math.floor(elapsed / cycleSec) + 1;
-      let newPhase, newTimeLeft;
-      if (cyclePos < runSec) {
-        newPhase = 'RUN';
-        newTimeLeft = runSec - cyclePos;
-      } else {
-        newPhase = 'REST';
-        newTimeLeft = cycleSec - cyclePos;
-      }
-      setTotalTime(elapsed);
-      setTimeLeft(newTimeLeft);
-      setPhase(newPhase);
-      setSeries(newSeries);
-    };
-
-    tick(); // natychmiastowa aktualizacja
-    timerRef.current = setInterval(tick, 500);
+    if (isActive && timeLeft >= 0) {
+      timerRef.current = setInterval(() => {
+        setTimeLeft((prev) => {
+          const nextValue = prev - 1;
+          if (nextValue === 3) { playCountdown(); speakVoice('Three', 'Trzy');  }
+          if (nextValue === 2) { playCountdown(); speakVoice('Two',   'Dwa');   }
+          if (nextValue === 1) { playCountdown(); speakVoice('One',   'Jeden'); }
+          if (nextValue <= 0) {
+            if (phase === 'RUN') {
+              playWalkMelody(); speakVoice('Walk', 'Marsz');
+              setPhase('REST');
+              return restMinutes * 60;
+            } else {
+              playRunMelody(); speakVoice('Run', 'Bieg');
+              setPhase('RUN');
+              setSeries(s => s + 1);
+              return runMinutes * 60;
+            }
+          }
+          return nextValue;
+        });
+        setTotalTime((prev) => prev + 1);
+      }, 1000);
+    } else {
+      clearInterval(timerRef.current);
+    }
     return () => clearInterval(timerRef.current);
-  }, [isActive]);
+  }, [isActive, phase, runMinutes, restMinutes, playCountdown, playRunMelody, playWalkMelody, speakVoice]);
 
-  // Wznowienie po odblokowaniu ekranu
-  useEffect(() => {
-    const handle = async () => {
-      if (document.visibilityState === 'visible') {
-        if (audioCtxRef.current?.state === 'suspended') {
-          await audioCtxRef.current.resume();
-        }
-        if (isActive && !wakeLockRef.current && 'wakeLock' in navigator) {
-          try { wakeLockRef.current = await navigator.wakeLock.request('screen'); } catch (_) {}
-        }
-      }
-    };
-    document.addEventListener('visibilitychange', handle);
-    return () => document.removeEventListener('visibilitychange', handle);
-  }, [isActive]);
+  // ─────────────────────────────────────────────────────────────────────────
 
   const formatTime = (seconds) => {
-    const mins = Math.floor(Math.max(0, seconds) / 60);
-    const secs = Math.max(0, seconds) % 60;
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
@@ -303,6 +166,7 @@ const App = () => {
       className="min-h-[100dvh] flex flex-col items-center justify-between p-4 sm:p-8 transition-colors duration-1000 text-white font-sans overflow-hidden"
       style={{ backgroundColor: phase === 'RUN' ? runColor : walkColor }}
     >
+      {/* Header */}
       <div className="w-full max-w-lg flex justify-between items-center pt-2 sm:pt-6">
         <button onClick={() => setIsMuted(!isMuted)} className="p-3 sm:p-4 bg-white/20 rounded-2xl backdrop-blur-md transition-transform active:scale-90">
           {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
@@ -318,6 +182,7 @@ const App = () => {
         </button>
       </div>
 
+      {/* Timer */}
       <div className="flex flex-col items-center flex-1 justify-center w-full relative my-8 sm:my-0">
         <div className="absolute top-0 sm:top-8 px-8 sm:px-10 py-2 bg-black/20 rounded-full border border-white/10 uppercase font-black italic tracking-widest text-lg sm:text-xl">
           {phase === 'RUN' ? t.runLabel : t.walkLabel}
@@ -335,9 +200,13 @@ const App = () => {
         </div>
       </div>
 
+      {/* Kontrolki */}
       <div className="w-full max-w-lg flex flex-col items-center gap-8 sm:gap-10 mb-6 sm:mb-12">
         <div className="flex items-center gap-10 sm:gap-14">
-          <button onClick={handleReset} className="p-4 sm:p-5 bg-white/10 rounded-full border border-white/10 active:rotate-180 transition-transform">
+          <button
+            onClick={() => { setIsActive(false); setTotalTime(0); setTimeLeft(runMinutes * 60); setPhase('RUN'); setSeries(1); }}
+            className="p-4 sm:p-5 bg-white/10 rounded-full border border-white/10 active:rotate-180 transition-transform"
+          >
             <RotateCcw size={28} />
           </button>
           <button
@@ -350,6 +219,7 @@ const App = () => {
         </div>
       </div>
 
+      {/* Modal ustawień */}
       {isSettingsOpen && (
         <div className="fixed inset-0 bg-black/95 backdrop-blur-2xl flex items-center justify-center p-4 sm:p-6 z-50">
           <div className="bg-zinc-900 border border-white/10 text-white w-full max-w-md rounded-[2.5rem] sm:rounded-[3rem] p-8 sm:p-10 max-h-[90vh] overflow-y-auto">
@@ -357,6 +227,8 @@ const App = () => {
               {t.settings}
             </h2>
             <div className="space-y-8 sm:space-y-10">
+
+              {/* Język */}
               <div>
                 <p className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold mb-3">Language / Język</p>
                 <div className="grid grid-cols-2 gap-2">
@@ -370,6 +242,7 @@ const App = () => {
                 </div>
               </div>
 
+              {/* Kolor biegu */}
               <div>
                 <p className="text-[10px] uppercase tracking-widest text-orange-400 font-bold mb-3">{t.runColor}</p>
                 <div className="flex flex-wrap gap-3">
@@ -381,6 +254,7 @@ const App = () => {
                 </div>
               </div>
 
+              {/* Kolor marszu */}
               <div>
                 <p className="text-[10px] uppercase tracking-widest text-emerald-400 font-bold mb-3">{t.walkColor}</p>
                 <div className="flex flex-wrap gap-3">
@@ -392,6 +266,7 @@ const App = () => {
                 </div>
               </div>
 
+              {/* Czas biegu */}
               <div>
                 <div className="flex justify-between items-center mb-3 sm:mb-4 text-orange-500 font-bold">
                   <label className="text-[10px] sm:text-xs uppercase tracking-widest">{t.runMin}</label>
@@ -402,6 +277,7 @@ const App = () => {
                   className="w-full h-3 sm:h-4 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-orange-500" />
               </div>
 
+              {/* Czas marszu */}
               <div>
                 <div className="flex justify-between items-center mb-3 sm:mb-4 text-emerald-500 font-bold">
                   <label className="text-[10px] sm:text-xs uppercase tracking-widest">{t.walkMin}</label>
@@ -414,7 +290,7 @@ const App = () => {
             </div>
 
             <button
-              onClick={() => { setIsSettingsOpen(false); if (!isActive) { handleReset(); } }}
+              onClick={() => { setIsSettingsOpen(false); if (!isActive) setTimeLeft(runMinutes * 60); }}
               className="w-full mt-10 sm:mt-12 bg-white text-black py-4 sm:py-5 rounded-2xl sm:rounded-3xl font-black text-lg sm:text-xl active:scale-95 transition-transform shadow-xl hover:bg-zinc-200"
             >
               {t.save}
