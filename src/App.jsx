@@ -39,6 +39,7 @@ const App = () => {
   const wakeLockRef = useRef(null);
   const audioCtxRef = useRef(null);
   const mainGainRef = useRef(null);
+  const silentAudioRef = useRef(null); // <audio> z cichym MP3 – trzyma tab jako "media playback"
 
   // Timing oparty na Date.now() – NIE na odejmowaniu sekundy co tick
   const wallStartRef = useRef(null); // Date.now() w chwili ostatniego Resume
@@ -130,7 +131,34 @@ const App = () => {
       mainGainRef.current.gain.value = isMuted ? 0 : 1.0;
       mainGainRef.current.connect(audioCtxRef.current.destination);
     }
-    // Cichy oscylator trzyma AudioContext aktywny przy zablokowanym ekranie
+
+    // ── KLUCZOWY TRICK: cichy MP3 w pętli przez <audio> ─────────────────────
+    // Sam AudioContext na Chrome Android jest zawieszany przy zablokowanym ekranie.
+    // Jednak jeśli strona ma aktywny <audio> odtwarzający media, Android traktuje ją
+    // jak odtwarzacz muzyki i utrzymuje audio w tle. Web Audio API wtedy też działa.
+    if (!silentAudioRef.current) {
+      // 30 sekund prawie-ciszy w formacie WAV jako data URI
+      // (loopowane przez pętlę audio)
+      const silentWav = 'data:audio/wav;base64,UklGRiQrAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQArAAAA' + 'AAAA'.repeat(2700);
+      const audio = new Audio(silentWav);
+      audio.loop = true;
+      audio.volume = 0.001; // prawie cisza, ale nie zero – zero zwalnia audio focus
+      audio.play().catch(() => {});
+      silentAudioRef.current = audio;
+    } else {
+      silentAudioRef.current.play().catch(() => {});
+    }
+
+    // MediaSession API – rejestruje stronę jako odtwarzacz, ikonka w powiadomieniach
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.metadata = new window.MediaMetadata({
+        title: 'Biegacz – Galloway Timer',
+        artist: t.run + ' / ' + t.walk,
+      });
+      navigator.mediaSession.playbackState = 'playing';
+    }
+
+    // Cichy oscylator (dodatkowy bufor)
     const silentOsc  = audioCtxRef.current.createOscillator();
     const silentGain = audioCtxRef.current.createGain();
     silentGain.gain.value = 0.00001;
@@ -183,6 +211,12 @@ const App = () => {
         audioCtxRef.current = null;
         mainGainRef.current = null;
       }
+      if (silentAudioRef.current) {
+        silentAudioRef.current.pause();
+      }
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.playbackState = 'paused';
+      }
       setIsActive(false);
       if (wakeLockRef.current) { wakeLockRef.current.release(); wakeLockRef.current = null; }
     }
@@ -193,6 +227,13 @@ const App = () => {
       audioCtxRef.current.close();
       audioCtxRef.current = null;
       mainGainRef.current = null;
+    }
+    if (silentAudioRef.current) {
+      silentAudioRef.current.pause();
+      silentAudioRef.current = null;
+    }
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.playbackState = 'none';
     }
     wallStartRef.current = null;
     offsetRef.current = 0;
