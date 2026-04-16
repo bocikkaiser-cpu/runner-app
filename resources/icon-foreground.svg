@@ -1,16 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <defs>
-    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="16" stdDeviation="18" flood-opacity="0.25"/>
+    <filter id="soft" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="10" stdDeviation="18" flood-opacity="0.25"/>
     </filter>
   </defs>
-  <!-- Foreground musi mieścić się w centralnym 66% (safe zone Androida) -->
-  <g fill="white" filter="url(#shadow)">
-    <circle cx="560" cy="250" r="56"/>
-    <path d="M 478 330 Q 560 300 610 350 L 650 470 Q 630 495 598 480 L 560 400 L 515 500 L 560 610 Q 540 640 500 635 L 440 520 Q 425 495 435 465 L 470 365 Z"/>
-    <path d="M 500 635 L 470 760 Q 465 785 440 790 L 370 800 Q 355 800 355 780 L 360 765 L 435 755 L 460 625 Z"/>
-    <path d="M 560 610 L 640 720 L 720 720 Q 740 720 740 740 L 735 758 L 645 762 Q 615 762 600 740 L 530 640 Z"/>
-    <path d="M 610 350 L 740 380 Q 760 385 755 410 L 748 430 L 625 410 Z"/>
-    <path d="M 478 330 L 390 380 Q 370 395 385 418 L 405 430 L 488 380 Z"/>
+  <!-- Foreground w strefie bezpiecznej Androida (centralne 66%) -->
+  <g filter="url(#soft)">
+    <path d="M 512 212 A 300 300 0 0 0 512 812 Z" fill="#ea580c"/>
+    <path d="M 512 212 A 300 300 0 0 1 512 812 Z" fill="#16a34a"/>
+  </g>
+  <line x1="512" y1="212" x2="512" y2="812" stroke="rgba(255,255,255,0.35)" stroke-width="5"/>
+
+  <g font-family="Inter, Arial, Helvetica, sans-serif" font-weight="900" fill="white" text-anchor="middle">
+    <text x="374" y="535" font-size="100" letter-spacing="2">RUN</text>
+    <text x="650" y="535" font-size="92" letter-spacing="2">WALK</text>
+  </g>
+
+  <g fill="white" opacity="0.95">
+    <path d="M 380 280 Q 512 230 644 280 L 644 264 L 692 298 L 644 332 L 644 316 Q 512 270 412 316 Z"/>
+    <path d="M 644 744 Q 512 794 380 744 L 380 760 L 332 726 L 380 692 L 380 708 Q 512 754 612 708 Z"/>
   </g>
 </svg>
