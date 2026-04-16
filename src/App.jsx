@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Play, Pause, RotateCcw, Settings, Volume2, VolumeX, Music } from 'lucide-react';
+import { speak } from './nativeTts';
 
 // ─── Języki ───────────────────────────────────────────────────────────────────
 const LANGUAGES = {
@@ -44,12 +45,10 @@ const App = () => {
 
   const speakVoice = useCallback((textEn, textPl) => {
     if (isMuted) return;
-    window.speechSynthesis.cancel();
     const lang = LANGUAGES[language];
-    const utterance = new SpeechSynthesisUtterance(textPl !== undefined ? (language === 'pl' ? textPl : textEn) : textEn);
-    utterance.lang = lang.locale;
-    utterance.rate = 1.1;
-    window.speechSynthesis.speak(utterance);
+    const text = textPl !== undefined ? (language === 'pl' ? textPl : textEn) : textEn;
+    // speak() sam wybierze natywny TTS (Android przy zablokowanym ekranie) lub webowy fallback
+    speak(text, lang.locale, 1.1);
   }, [isMuted, language]);
 
   const playTone = useCallback((frequency, startTimeOffset, duration, type = 'sine') => {

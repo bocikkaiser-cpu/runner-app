@@ -1,0 +1,14 @@
+{
+  "appId": "com.bocikkaiser.biegacz",
+  "appName": "Biegacz",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "TextToSpeech": {}
+  }
+}
