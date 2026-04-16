@@ -58,8 +58,12 @@ jobs:
           print("Manifest patched")
           PY
 
-      - name: Install ImageMagick + librsvg
-        run: sudo apt-get update && sudo apt-get install -y imagemagick librsvg2-bin
+      - name: Install ImageMagick + librsvg + fonts
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y imagemagick librsvg2-bin fonts-inter fonts-liberation fontconfig
+          fc-cache -f
+          fc-list | grep -iE "inter|liberation" | head -5 || true
 
       - name: Generate Android launcher icons from SVG
         run: |

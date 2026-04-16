@@ -28,9 +28,9 @@
   <line x1="512" y1="152" x2="512" y2="872" stroke="rgba(255,255,255,0.35)" stroke-width="6"/>
 
   <!-- Napisy RUN / WALK -->
-  <g font-family="Inter, Arial, Helvetica, sans-serif" font-weight="900" fill="white" text-anchor="middle">
-    <text x="346" y="540" font-size="120" letter-spacing="2">RUN</text>
-    <text x="678" y="540" font-size="110" letter-spacing="2">WALK</text>
+  <g font-family="Inter, 'Liberation Sans', Arial, sans-serif" font-weight="900" fill="white" text-anchor="middle" dominant-baseline="central">
+    <text x="346" y="512" font-size="132" letter-spacing="4">RUN</text>
+    <text x="678" y="512" font-size="118" letter-spacing="4">WALK</text>
   </g>
 
   <!-- Strzałki cyklu (naprzemienność) -->
