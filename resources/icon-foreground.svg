@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="16" stdDeviation="18" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+  <!-- Foreground musi mieścić się w centralnym 66% (safe zone Androida) -->
+  <g fill="white" filter="url(#shadow)">
+    <circle cx="560" cy="250" r="56"/>
+    <path d="M 478 330 Q 560 300 610 350 L 650 470 Q 630 495 598 480 L 560 400 L 515 500 L 560 610 Q 540 640 500 635 L 440 520 Q 425 495 435 465 L 470 365 Z"/>
+    <path d="M 500 635 L 470 760 Q 465 785 440 790 L 370 800 Q 355 800 355 780 L 360 765 L 435 755 L 460 625 Z"/>
+    <path d="M 560 610 L 640 720 L 720 720 Q 740 720 740 740 L 735 758 L 645 762 Q 615 762 600 740 L 530 640 Z"/>
+    <path d="M 610 350 L 740 380 Q 760 385 755 410 L 748 430 L 625 410 Z"/>
+    <path d="M 478 330 L 390 380 Q 370 395 385 418 L 405 430 L 488 380 Z"/>
+  </g>
+</svg>
